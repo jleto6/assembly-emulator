@@ -67,7 +67,7 @@ if (index >= MEMSIZE) {
 	return 1;
 }
 // *instruction = Mem[index];
-*instruction = 0xFFFF8000;
+*instruction = 0x2d2d000f;
 
 printf("[fetch] Raw instruction: 0x%08x\n", *instruction);
 
@@ -95,24 +95,113 @@ void instruction_partition(unsigned instruction, unsigned *op, unsigned *r1,unsi
 /* instruction decode */
 /* 15 Points */
 int instruction_decode(unsigned op,struct_controls *controls)
-{
-
-	// decode for ALUOp
-	if (op == 0x0) { // R-type
-        controls->ALUOp = 10; 
-    } 
-    else if (op == 0x23) { // lw
-        controls->ALUOp = 00;
+{	
+    if (op == 0x0) { // if r type
+        controls->RegDst = 1;
+        controls->Jump = 0;
+        controls->Branch = 0;
+        controls->MemRead = 0;
+        controls->MemtoReg = 0;
+        controls->ALUOp = 7; 
+        controls->MemWrite = 0;
+        controls->ALUSrc = 0;
+        controls->RegWrite = 1;
     }
-    else if (op == 0x2B) { // sw
-        controls->ALUOp = 00;
+    else if (op == 0x2) { // if jump
+        controls->RegDst = 2;
+        controls->Jump = 1;
+        controls->Branch = 0;
+        controls->MemRead = 0;
+        controls->MemtoReg = 2;  
+        controls->ALUOp = 0;  
+        controls->MemWrite = 0;
+        controls->ALUSrc = 1;  
+        controls->RegWrite = 0;
     }
-    else if (op == 0x04) { // beq
-        controls->ALUOp = 01;
+    else if (op == 0x4) { // if beq
+        controls->RegDst = 2;
+        controls->Jump = 0;
+        controls->Branch = 1;
+        controls->MemRead = 0;
+        controls->MemtoReg = 2; 
+        controls->ALUOp = 1;  
+        controls->MemWrite = 0;
+        controls->ALUSrc = 0;
+        controls->RegWrite = 0;
+    }
+    else if (op == 0x8) { // if addi
+        controls->RegDst = 0;
+        controls->Jump = 0;
+        controls->Branch = 0;
+        controls->MemRead = 0;
+        controls->MemtoReg = 0;
+        controls->ALUOp = 0;  
+        controls->MemWrite = 0;
+        controls->ALUSrc = 1;  
+        controls->RegWrite = 1;
+    }
+    else if (op == 0xA) { // if slti
+        controls->RegDst = 0;
+        controls->Jump = 0;
+        controls->Branch = 0;
+        controls->MemRead = 0;
+        controls->MemtoReg = 0;
+        controls->ALUOp = 2;  
+        controls->MemWrite = 0;
+        controls->ALUSrc = 1; 
+        controls->RegWrite = 1;
+    }
+    else if (op == 0xB) { // if sltiu
+        controls->RegDst = 0;
+        controls->Jump = 0;
+        controls->Branch = 0;
+        controls->MemRead = 0;
+        controls->MemtoReg = 0;
+        controls->ALUOp = 3;  
+        controls->MemWrite = 0;
+        controls->ALUSrc = 1;  
+        controls->RegWrite = 1;
+    }
+    else if (op == 0xF) { // if lui
+        controls->RegDst = 0;
+        controls->Jump = 0;
+        controls->Branch = 0;
+        controls->MemRead = 0;
+        controls->MemtoReg = 0;
+        controls->ALUOp = 6;  
+        controls->MemWrite = 0;
+        controls->ALUSrc = 1; 
+        controls->RegWrite = 1;
+    }
+    else if (op == 0x23) { // if lw
+        controls->RegDst = 0;
+        controls->Jump = 0;
+        controls->Branch = 0;
+        controls->MemRead = 1;
+        controls->MemtoReg = 1;
+        controls->ALUOp = 0;  
+        controls->MemWrite = 0;
+        controls->ALUSrc = 1;  
+        controls->RegWrite = 1;
+    }
+    else if (op == 0x2B) { // if sw
+        controls->RegDst = 2;
+        controls->Jump = 0;
+        controls->Branch = 0;
+        controls->MemRead = 0;
+        controls->MemtoReg = 2;  
+        controls->ALUOp = 0;  
+        controls->MemWrite = 1;
+        controls->ALUSrc = 1;  
+        controls->RegWrite = 0;
+    }
+    else {
+        return 1;  // halt
     }
 
-
-	
+	// printf("ALUOp: %d, ALUSrc: %d, MemtoReg: %d, RegDst: %d, RegWrite: %d, MemRead: %d, MemWrite: %d, Branch: %d, Jump: %d\n", 
+    //     controls->ALUOp, controls->ALUSrc, controls->MemtoReg, controls->RegDst, controls->RegWrite, 
+    //     controls->MemRead, controls->MemWrite, controls->Branch, controls->Jump);
 
 	return 0;
 }
@@ -150,7 +239,7 @@ void sign_extend(unsigned offset,unsigned *extended_value)
 int ALU_operations(unsigned data1,unsigned data2,unsigned extended_value,unsigned funct,char ALUOp,char ALUSrc,unsigned *ALUresult,char *Zero)
 {
 	// if r type
-	if (ALUOp == 10){ 
+	if (ALUOp == 7){ 
 		if (funct == 0x20) {  // add
         *ALUresult = data1 + data2;
 		}
@@ -171,12 +260,33 @@ int ALU_operations(unsigned data1,unsigned data2,unsigned extended_value,unsigne
 		}
 	}
 	// if beq
-	else if (ALUOp == 01) { 
+	else if (ALUOp == 1) { 
         *ALUresult = data1 - data2;  // Compare
     }
 	// if lw/sw
-    else if (ALUOp == 00) {  
+    else if (ALUOp == 0) {  
         *ALUresult = data1 + extended_value;  // address calculation
+	}
+	// if slti 
+    else if (ALUOp == 2) {  
+        if ((int)data1 < (int)extended_value)
+            *ALUresult = 1;
+        else
+            *ALUresult = 0;
+    }
+    // if sltiu
+    else if (ALUOp == 3) {  
+        if (data1 < extended_value)
+            *ALUresult = 1;
+        else
+            *ALUresult = 0;
+    }
+    // if lui 
+    else if (ALUOp == 6) {
+        *ALUresult = extended_value << 16;  // Shift the immediate value by 16 bits
+    }
+	else{
+		return 1;
 	}
 
 	// set zero flag
