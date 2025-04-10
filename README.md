@@ -24,6 +24,6 @@ The simulator demonstrates the core principles of how a MIPS datapath executes i
 ## How to Compile and Run
 
 ```bash
-gcc -o myspim project.c spimcore.c
-./myspim
+gcc -o spimcore project.c spimcore.c
+./spimcore
 # assembly-emulator

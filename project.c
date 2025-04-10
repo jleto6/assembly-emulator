@@ -49,27 +49,22 @@ else {
 
 /* instruction fetch */
 /* 10 Points */
-
 int instruction_fetch(unsigned PC,unsigned *Mem,unsigned *instruction)
 {
-
-#define MEMSIZE (65536 >> 2)
- 
   if (PC % 4 != 0) {
 	return 1;
 }
 if (PC < 0x4000) {
 	return 1;
 }
-unsigned index = (PC - 0x4000) >> 2;
+unsigned index = PC >> 2;
 
-if (index >= MEMSIZE) {
-	return 1;
-}
-// *instruction = Mem[index];
-*instruction = 0x2d2d000f;
+// if (index >= MEMSIZE) {
+// 	return 1;
+// }
+*instruction = Mem[index];
 
-printf("[fetch] Raw instruction: 0x%08x\n", *instruction);
+// printf("Instruction: 0x%08x \n", *instruction);
 
 return 0;
 }
@@ -86,8 +81,6 @@ void instruction_partition(unsigned instruction, unsigned *op, unsigned *r1,unsi
 	*funct = instruction & 0x3F; //function R-type
 	*offset = instruction & 0xFFFF; //address/immediate I-type
 	*jsec = instruction & 0x3FFFFFF; //target address J-type
-
-	printf("OPCODE: 0x%08x\n", *op);
 }
 
 
@@ -96,6 +89,16 @@ void instruction_partition(unsigned instruction, unsigned *op, unsigned *r1,unsi
 /* 15 Points */
 int instruction_decode(unsigned op,struct_controls *controls)
 {	
+    //initialize
+    controls->RegDst = 0;
+    controls->Jump = 0;
+    controls->Branch = 0;
+    controls->MemRead = 0;
+    controls->MemtoReg = 0;
+    controls->ALUOp = 0; 
+    controls->MemWrite = 0;
+    controls->ALUSrc = 0;
+    controls->RegWrite = 0;
     if (op == 0x0) { // if r type
         controls->RegDst = 1;
         controls->Jump = 0;
@@ -162,6 +165,28 @@ int instruction_decode(unsigned op,struct_controls *controls)
         controls->ALUSrc = 1;  
         controls->RegWrite = 1;
     }
+    else if (op == 0xC) { // if andi
+        controls->RegDst = 0;
+        controls->Jump = 0;
+        controls->Branch = 0;
+        controls->MemRead = 0;
+        controls->MemtoReg = 0;
+        controls->ALUOp = 4;  
+        controls->MemWrite = 0;
+        controls->ALUSrc = 1;  
+        controls->RegWrite = 1;
+    }
+    else if (op == 0xD) { // if ori
+        controls->RegDst = 0;
+        controls->Jump = 0;
+        controls->Branch = 0;
+        controls->MemRead = 0;
+        controls->MemtoReg = 0;
+        controls->ALUOp = 5;  
+        controls->MemWrite = 0;
+        controls->ALUSrc = 1;  
+        controls->RegWrite = 1;
+    }
     else if (op == 0xF) { // if lui
         controls->RegDst = 0;
         controls->Jump = 0;
@@ -195,6 +220,7 @@ int instruction_decode(unsigned op,struct_controls *controls)
         controls->ALUSrc = 1;  
         controls->RegWrite = 0;
     }
+    
     else {
         return 1;  // halt
     }
@@ -210,7 +236,8 @@ int instruction_decode(unsigned op,struct_controls *controls)
 /* 5 Points */
 void read_register(unsigned r1,unsigned r2,unsigned *Reg,unsigned *data1,unsigned *data2)
 {
-
+    *data1 = Reg[r1];
+    *data2 = Reg[r2];
 }
 
 
@@ -219,19 +246,18 @@ void read_register(unsigned r1,unsigned r2,unsigned *Reg,unsigned *data1,unsigne
 void sign_extend(unsigned offset,unsigned *extended_value)
 {
 	// printf("Offset: 8x%08x\n", offset);
-
+	
 	unsigned msb = (offset >> 15) & 1; // get the MSB
 	// printf("bit_15: %d\n", msb);
 
 	if (msb == 1){
-		*extended_value = offset | 0xFFFF0000;  // pad with 1
+		*extended_value = offset | 0xFFFF0000;  // pad with 1s
 	}
 	else{
-		*extended_value = offset & 0x0000FFFF;  // pad with 0
+		*extended_value = offset & 0x0000FFFF;  // pad with 0s
 	}
 
-	// printf("Extended: 8x%08x\n", *extended_value);a
-
+	// printf("Extended: 8x%08x\n", *extended_value);
 }
 
 /* ALU operations */
@@ -299,6 +325,7 @@ int ALU_operations(unsigned data1,unsigned data2,unsigned extended_value,unsigne
 	return 0;
 }
 
+
 /* Read / Write Memory */
 /* 10 Points */
 int rw_memory(unsigned ALUresult,unsigned data2,char MemWrite,char MemRead,unsigned *memdata,unsigned *Mem)
@@ -361,6 +388,23 @@ void write_register(unsigned r2,unsigned r3,unsigned memdata,unsigned ALUresult,
 /* 10 Points */
 void PC_update(unsigned jsec,unsigned extended_value,char Branch,char Jump,char Zero,unsigned *PC)
 {
-	*PC += 4;
 
+	if(Jump == 1){
+		*PC = (jsec << 2);
+	}
+
+	else if(Branch == 1){
+
+		if(Zero == 1){
+			*PC += extended_value; 
+		}
+
+		else{
+			*PC += extended_value;
+		}
+	}
+
+	else{
+		*PC += 4;
+	}
 }

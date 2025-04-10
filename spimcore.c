@@ -403,6 +403,8 @@ int main(int argc, char **argv)
 		{
 			MEM(i) = strtoul(Buf, (char **) NULL, 16);
 		}
+
+		// printf("Mem: %d", MEM(i));
 	}
 	Loop();
 	fclose(FP);
